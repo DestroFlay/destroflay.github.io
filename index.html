@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Моніторинг СЕС | Скрінік Я.В.</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Інженерний стиль (Тільки Темна тема) */
+        body {
+            background-color: #111827;
+            color: #f3f4f6;
+            background-image: linear-gradient(to bottom, rgba(17, 24, 39, 0.85), rgba(17, 24, 39, 0.98)), url('fd2eff_Solar-Panel-Advantages.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        .standard-panel {
+            background-color: rgba(31, 41, 55, 0.85);
+            border: 1px solid #4b5563;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .terminal-bg {
+            background-color: #0d0d0d;
+            color: #10b981;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(31, 41, 55, 0.5); }
+        ::-webkit-scrollbar-thumb { background: #6b7280; border-radius: 4px; }
+
+        .root-active .root-border {
+            border: 1px solid #ef4444 !important;
+            box-shadow: inset 0 0 10px rgba(239, 68, 68, 0.1);
+        }
+
+        input, select {
+            background-color: rgba(17, 24, 39, 0.8);
+            border: 1px solid #4b5563;
+            color: #f3f4f6;
+            border-radius: 2px;
+            padding: 2px 6px;
+        }
+        input:focus { border-color: #3b82f6; outline: none; }
+
+        .btn-std {
+            padding: 6px 12px;
+            border-radius: 2px;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            transition: opacity 0.2s;
+            border: 1px solid transparent;
+        }
+        .btn-std:hover { opacity: 0.8; }
+
+        body:not(.root-active) .root-only { display: none !important; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-2 md:p-4 transition-colors duration-300">
+
+    <!-- Верхня панель (Header) -->
+    <header class="standard-panel p-4 mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div>
+            <h1 class="text-xl font-bold tracking-tight uppercase text-blue-400">Система моніторингу СЕС</h1>
+            <p class="text-xs text-gray-400 font-medium mt-1">Дипломний проєкт | Студент: Скрінік Ярослав</p>
+        </div>
+
+        <div class="flex items-center gap-4 flex-wrap justify-center">
+            <!-- Керування -->
+            <div class="flex border-r border-gray-600 pr-4 gap-2">
+                <button id="root-btn" onclick="toggleRoot()" class="btn-std bg-gray-800 text-gray-300 border-gray-600 font-mono tracking-tighter hover:text-red-400 hover:border-red-500 transition-colors">Admin ROOT</button>
+            </div>
+<!-- Статус мережі -->
+            <div class="flex items-center gap-6">
+                <div class="text-center">
+                    <p class="text-[9px] uppercase text-gray-500 font-bold">Режим</p>
+                    <div class="flex items-center gap-1 mt-1">
+                        <span class="text-[10px] font-bold text-gray-300" id="label-sim">SIM</span>
+                        <input type="checkbox" id="hardware-toggle" class="cursor-pointer accent-blue-500">
+                        <span class="text-[10px] text-gray-500" id="label-hw">ESP32</span>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <p class="text-[9px] uppercase text-gray-500 font-bold">Шлюз</p>
+                    <span id="gateway-status" class="text-[10px] font-bold text-green-500">SIMULATION</span>
+                </div>
+                <div class="text-center">
+                    <p class="text-[9px] uppercase text-gray-500 font-bold">Буфер</p>
+                    <span id="buffer-info" class="text-[10px] font-mono font-bold text-blue-400">0/100</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1">
+        
+        <!-- Основний дашборд -->
+        <div id="main-content" class="lg:col-span-4 flex flex-col gap-4 transition-all duration-300">
+            
+            <!-- Панель метеоданих та локації -->
+            <section class="standard-panel p-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h2 class="text-xs font-bold uppercase text-gray-400 mb-2">Географічне положення</h2>
+                        <div class="flex gap-2 mb-2">
+                            <input type="text" id="manual-lat" placeholder="Широта" class="w-1/3 text-xs text-center">
+                            <input type="text" id="manual-lon" placeholder="Довгота" class="w-1/3 text-xs text-center">
+                            <button id="update-geo-btn" class="btn-std bg-blue-600 border-blue-500 text-white py-1 px-3">Встановити</button>
+                        </div>
+                        <p id="location-display" class="text-sm font-bold text-blue-400">Очікування даних...</p>
+                    </div>
+                    
+                    <div>
+                        <h2 class="text-xs font-bold uppercase text-gray-400 mb-2">Поточні метеодані</h2>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                            <div class="bg-gray-800 border border-gray-700 p-1 rounded">
+                                <p class="text-[8px] text-gray-400 uppercase">AQI</p>
+                                <p id="aqi-val" class="text-xs font-bold text-gray-200">--</p>
+                            </div>
+                            <div class="bg-gray-800 border border-gray-700 p-1 rounded">
+                                <p class="text-[8px] text-gray-400 uppercase">Вологість</p>
+                                <p id="hum-val" class="text-xs font-bold text-blue-300">--%</p>
+                            </div>
+                            <div class="bg-gray-800 border border-gray-700 p-1 rounded">
+                                <p class="text-[8px] text-gray-400 uppercase">Вітер</p>
+                                <p id="wind-val" class="text-xs font-bold text-gray-200">--</p>
+                            </div>
+                            <div class="bg-gray-800 border border-gray-700 p-1 rounded">
+                                <p class="text-[8px] text-gray-400 uppercase">Хмари</p>
+                                <p id="cloud-val" class="text-xs font-bold text-gray-200">--%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+<!-- Керування панелями та сонячною активністю -->
+            <div class="flex justify-between items-center px-1 flex-wrap gap-4">
+                <div class="flex gap-2 items-center">
+                    <button id="add-node-btn" class="btn-std bg-green-700 border-green-600 text-white hover:bg-green-600">Додати вузол</button>
+                    <div id="hw-controls" class="hidden items-center gap-2 ml-2 bg-blue-900/40 p-1 border border-blue-500/50 rounded">
+                        <span class="text-[10px] font-bold text-blue-300 uppercase px-1">IP ESP32:</span>
+                        <input type="text" id="esp-ip" value="http://192.168.1.100" class="text-[10px] w-32 py-0.5 text-center bg-black/50 border-gray-600 text-gray-200">
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-3 bg-gray-800 border border-gray-700 p-2 rounded">
+                    <span class="text-[10px] font-bold text-gray-300 uppercase">Сонце:</span>
+                    <input type="range" id="time-slider" min="0" max="23" value="13" class="w-24 accent-yellow-500 cursor-pointer">
+                    <span id="time-display" class="font-mono text-xs font-bold text-yellow-400">13:00</span>
+                    <button id="real-time-btn" class="text-[9px] bg-gray-700 border border-gray-600 px-2 py-0.5 rounded text-gray-200 hover:bg-gray-600 uppercase font-bold">Auto</button>
+                </div>
+            </div>
+
+            <!-- Масив вузлів (Grid) -->
+            <div id="panels-container" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 pb-10">
+                <!-- Картки вузлів генеруються тут -->
+            </div>
+        </div>
+
+        <!-- Системний журнал (Sidebar) - Прихований у звичайному режимі -->
+        <div id="sidebar-logs" class="hidden flex-col gap-2 transition-all duration-300">
+            <h2 class="text-xs font-bold uppercase tracking-widest text-red-500 pl-1">Лог подій (ROOT Terminal)</h2>
+            <div class="terminal-bg flex-1 p-3 rounded shadow-inner text-[10px] overflow-y-auto h-[400px] lg:h-[600px] border border-gray-700 relative">
+                <div id="logs" class="space-y-1">
+                    <!-- Записи логів -->
+                </div>
+            </div>
+            <button id="clear-logs" class="text-[9px] uppercase font-bold text-gray-500 hover:text-gray-300 text-right pr-2 transition-colors">Очистити консоль</button>
+        </div>
+    </div>
+
+    <!-- Модальне вікно (Налаштування) -->
+    <div id="node-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 hidden backdrop-blur-sm">
+        <div class="bg-gray-800 w-11/12 max-w-sm p-6 border border-gray-600 shadow-2xl rounded-lg relative">
+            <button onclick="closeModal()" class="absolute top-3 right-4 text-gray-400 hover:text-white text-xl font-bold">&times;</button>
+            <h3 class="text-lg font-bold border-b border-gray-600 pb-2 mb-4 uppercase tracking-tighter text-blue-400" id="modal-title">Налаштування вузла</h3>
+            
+            <p class="text-[10px] text-gray-400 uppercase mb-4" id="modal-subtitle">Локація: --</p>
+<!-- Форма ROOT -->
+            <div id="modal-root-fields" class="hidden space-y-4 mb-6 border-b border-gray-600 pb-4">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase tracking-wider">Назва панелі (ID)</label>
+                    <input type="text" id="edit-name" class="w-full text-sm">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase tracking-wider">Сектор / Локація</label>
+                    <input type="text" id="edit-loc" class="w-full text-sm">
+                </div>
+                <div class="bg-red-900/30 p-2 border border-red-500/50 rounded">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="force-norm" class="accent-red-500 cursor-pointer w-4 h-4">
+                        <span class="text-[10px] font-bold text-red-400 uppercase tracking-wider">Примусовий статус "Норма" (Обхід)</span>
+                    </label>
+                </div>
+                <button onclick="repairNode()" class="w-full btn-std bg-yellow-600/80 border-yellow-500 text-white hover:bg-yellow-500">Виконати ТО (Ремонт)</button>
+            </div>
+
+            <!-- Технічні дані -->
+            <div class="text-[10px] font-mono space-y-2 bg-gray-900 p-3 mb-6 border border-gray-700 rounded">
+                <div class="flex justify-between text-gray-300"><span class="uppercase text-gray-500">MAC:</span> <span id="m-mac" class="text-blue-300">--</span></div>
+                <div class="flex justify-between text-gray-300"><span class="uppercase text-gray-500">FW:</span> <span id="m-fw">--</span></div>
+                <div class="flex justify-between text-gray-300"><span class="uppercase text-gray-500">Uptime:</span> <span id="m-up">--</span></div>
+                <div class="flex justify-between text-gray-300"><span class="uppercase text-gray-500">Генерація:</span> <span id="m-energy" class="text-green-400 font-bold">--</span></div>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                <button onclick="closeModal()" class="flex-1 btn-std bg-gray-600 border-gray-500 text-white">Закрити</button>
+                <button onclick="saveNodeSettings()" id="m-save" class="hidden flex-1 btn-std bg-blue-700 border-blue-600 text-white">Зберегти</button>
+                <button onclick="deleteSelectedNode()" id="m-del" class="hidden flex-1 btn-std bg-red-700 border-red-600 text-white">Видалити</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * КЕРНЕЛ СИСТЕМИ МОНІТОРИНГУ
+         * Студент: Скрінік Ярослав
+         */
+
+        const STATE = {
+            isRoot: false,
+            isHw: false,
+            hour: 13,
+            nodes: [],
+            overrides: {}, 
+            lastData: [],
+            selectedMac: null
+        };
+
+        const logs = document.getElementById('logs');
+        function addLog(msg, type = 'info') {
+            // Журнал працює ТІЛЬКИ в ROOT режимі
+            if (!STATE.isRoot) return;
+
+            const row = document.createElement('div');
+            const ts = new Date().toLocaleTimeString('uk-UA', {hour12:false});
+            let color = 'text-gray-400';
+            if (type === 'warn') color = 'text-yellow-400';
+            if (type === 'error') color = 'text-red-400';
+            if (type === 'success') color = 'text-blue-400 font-bold';
+            
+            row.innerHTML = <span class="opacity-50 text-gray-500">[${ts}]</span> <span class="${color}">${msg}</span>;
+            logs.appendChild(row);
+            logs.parentElement.scrollTop = logs.parentElement.scrollHeight;
+        }
+
+        async function fetchMeteo(lat, lon) {
+            try {
+                addLog(Отримання метеоданих для: ${lat.toFixed(2)}, ${lon.toFixed(2)}, 'info');
+                document.getElementById('manual-lat').value = lat.toFixed(4);
+                document.getElementById('manual-lon').value = lon.toFixed(4);
+const [aqiRes, weatherRes, geoRes] = await Promise.all([
+                    fetch(https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi),
+                    fetch(https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=relative_humidity_2m,wind_direction_10m,cloud_cover),
+                    fetch(https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=uk)
+                ]);
+                
+                const aqi = await aqiRes.json();
+                const wet = await weatherRes.json();
+                const geo = await geoRes.json();
+
+                document.getElementById('location-display').innerText = ${geo.city || geo.locality || 'Невідомо'}, ${geo.countryCode};
+                document.getElementById('aqi-val').innerText = aqi.current.us_aqi;
+                document.getElementById('hum-val').innerText = ${wet.current.relative_humidity_2m}%;
+                document.getElementById('cloud-val').innerText = ${wet.current.cloud_cover}%;
+                
+                const dirs = ['Пн', 'Пн-Сх', 'Сх', 'Пд-Сх', 'Пд', 'Пд-Зх', 'Зх', 'Пн-Зх'];
+                document.getElementById('wind-val').innerText = dirs[Math.round(wet.current.wind_direction_10m / 45) % 8];
+                
+                addLog("Метеодані оновлено успішно.", "success");
+            } catch (e) {
+                addLog("Помилка підключення до метео-API", "error");
+                document.getElementById('location-display').innerText = "Помилка мережі";
+            }
+        }
+
+        class SensorDS18B20 {
+            read(sun) { return (15 + (sun * 25) + (Math.random() * 2 - 1)).toFixed(1); }
+        }
+        class SensorACS758 {
+            read(sun, broken, dirty) {
+                if (broken) return {v:0, c:0, w:0};
+                const eff = dirty ? 0.6 : 1.0;
+                let v = Math.max(0, (40 * sun * eff) + (Math.random() - 0.5));
+                let c = Math.max(0, (10 * sun * eff) + (Math.random() * 0.2 - 0.1));
+                if (sun < 0.05) { v = 0; c = 0; }
+                return {v: v.toFixed(1), c: c.toFixed(2), w: Math.round(v * c)};
+            }
+        }
+
+        class Node {
+            constructor(id, loc) {
+                this.mac = "DC:4F:22:" + Array.from({length:3}, () => Math.floor(Math.random()*255).toString(16).padStart(2,'0').toUpperCase()).join(':');
+                this.id = id; 
+                this.loc = loc;
+                this.isBroken = Math.random() > 0.90; // 10% шанс відмови при ініціалізації
+                this.isDirty = Math.random() > 0.80;  // 20% шанс забруднення
+                this.tempS = new SensorDS18B20();
+                this.pwrS = new SensorACS758();
+                this.energy = (Math.random() * 5).toFixed(2);
+                this.up = Math.floor(Math.random() * 240);
+                this.lastSt = "";
+            }
+            getData(sun) {
+                // Динамічне зношування панелей
+                if (!this.isBroken && Math.random() < 0.005) this.isBroken = true;
+                if (!this.isDirty && Math.random() < 0.01) this.isDirty = true;
+
+                const p = this.pwrS.read(sun, this.isBroken, this.isDirty);
+                const t = this.tempS.read(sun);
+                
+                let st = "Норма", clr = "text-green-500", brd = "border-gray-600";
+                
+                if (this.isBroken) { st = "Критичний стан"; clr = "text-red-500"; brd = "border-red-500"; }
+                else if (this.isDirty) { st = "Середній стан"; clr = "text-yellow-500"; brd = "border-yellow-500"; }
+                if (sun === 0) { st = "Сон"; clr = "text-gray-500"; brd = "border-gray-700"; }
+const over = STATE.overrides[this.mac]  {};
+                
+                // Автоматичне скасування обходу, якщо панель фізично полагодили
+                if (over.force && (st === "Норма"  st === "Сон")) {
+                    over.force = false;
+                    STATE.overrides[this.mac] = over;
+                    addLog(Вузол ${this.mac} відновив роботу. Обхід знято автоматично., "success");
+                }
+
+                // Записуємо лог лише якщо фізичний стан змінився
+                if (this.lastSt !== st && st !== "Сон" && this.lastSt !== "Сон" && this.lastSt !== "") {
+                    addLog(Увага! Вузол ${over.name || this.id} перейшов у стан: ${st}, st === 'Норма' ? 'success' : 'warn');
+                }
+                this.lastSt = st;
+
+                return { 
+                    mac: this.mac, 
+                    id: this.id, 
+                    loc: this.loc, 
+                    power: p, 
+                    temp: t, 
+                    realStatus: st, 
+                    color: clr, 
+                    border: brd, 
+                    up: this.up, 
+                    energy: this.energy 
+                };
+            }
+        }
+
+        async function pollData() {
+            let currentData = [];
+
+            if (STATE.isHw) {
+                try {
+                    const ip = document.getElementById('esp-ip').value;
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 1500);
+                    const res = await fetch(${ip}/api/telemetry, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    if (!res.ok) throw new Error('HTTP Error');
+                    currentData = await res.json();
+                    
+                    document.getElementById('gateway-status').innerText = 'ESP32 DIRECT';
+                    document.getElementById('gateway-status').className = 'text-[10px] font-bold text-blue-400';
+                } catch (e) {
+                    currentData = STATE.nodes.map(n => {
+                        let base = n.getData(0); 
+                        base.realStatus = "Немає зв'язку"; base.color = "text-red-500"; base.border = "border-red-500";
+                        base.power = {v:0, c:0, w:0}; base.temp = 0;
+                        return base;
+                    });
+                    document.getElementById('gateway-status').innerText = 'OFFLINE';
+                    document.getElementById('gateway-status').className = 'text-[10px] font-bold text-red-500';
+                }
+            } else {
+                currentData = STATE.nodes.map(n => n.getData(getSun()));
+                document.getElementById('gateway-status').innerText = 'SIMULATION';
+                document.getElementById('gateway-status').className = 'text-[10px] font-bold text-green-500';
+            }
+
+            STATE.lastData = currentData;
+            renderHTML(currentData);
+        }
+
+        function renderHTML(dataArray) {
+            const container = document.getElementById('panels-container');
+            container.innerHTML = "";
+            let activeCount = 0;
+
+            dataArray.forEach(d => {
+                const over = STATE.overrides[d.mac] || {};
+                if (over.deleted) return; 
+                activeCount++;
+
+                const dispName = over.name  d.id;
+                const dispLoc = over.loc  d.loc;
+                
+                let dispStatus = d.realStatus;
+                let dispColor = d.color;
+                let dispBorder = d.border;
+
+                // Застосування обходу (Force Normal)
+                if (over.force && dispStatus !== "Норма" && dispStatus !== "Сон") {
+                    dispStatus = "Норма (Обхід)";
+                    dispColor = "text-green-500";
+                    dispBorder = "border-green-500";
+                }
+const card = document.createElement('div');
+                card.className = standard-panel p-4 cursor-pointer hover:bg-gray-800 transition-colors ${dispBorder} root-border group;
+                card.onclick = () => openModal(d.mac);
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h3 class="text-sm font-bold uppercase text-gray-100">${dispName}</h3>
+                            <p class="text-[9px] text-gray-500 uppercase tracking-widest">${dispLoc}</p>
+                        </div>
+                        <span class="text-[9px] font-bold uppercase tracking-wider bg-black/40 border border-gray-600 px-1.5 py-0.5 rounded ${dispColor}">${dispStatus}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-center border-t border-gray-700 pt-3 mt-1">
+                        <div class="bg-gray-900/50 p-1 rounded"><p class="text-[8px] text-gray-500 uppercase">Потужність</p><p class="text-sm font-mono font-bold text-blue-400">${d.power.w}W</p></div>
+                        <div class="bg-gray-900/50 p-1 rounded"><p class="text-[8px] text-gray-500 uppercase">Температура</p><p class="text-sm font-mono font-bold text-orange-400">${d.temp}°C</p></div>
+                        <div class="bg-gray-900/50 p-1 rounded"><p class="text-[8px] text-gray-500 uppercase">Напруга</p><p class="text-xs font-mono text-gray-300">${d.power.v}V</p></div>
+                        <div class="bg-gray-900/50 p-1 rounded"><p class="text-[8px] text-gray-500 uppercase">Струм</p><p class="text-xs font-mono text-gray-300">${d.power.c}A</p></div>
+                    </div>
+                    <div class="root-only mt-3 text-center text-[9px] font-bold text-gray-500 group-hover:text-blue-400 transition-colors uppercase tracking-widest border-t border-gray-700 pt-2">Налаштувати вузол</div>
+                `;
+                container.appendChild(card);
+            });
+
+            document.getElementById('buffer-info').innerText = `${activeCount * 2}/100`;
+        }
+
+        function getSun() {
+            const t = STATE.hour;
+            if (t < 6  t > 20) return 0;
+            return Math.max(0, (1 - Math.pow((t-13)/7, 2)) * (Math.random() > 0.8 ? 0.5 : 1));
+        }
+
+        // ФУНКЦІЇ МОДАЛЬНОГО ВІКНА
+        window.openModal = (mac) => {
+            STATE.selectedMac = mac;
+            const data = STATE.lastData.find(d => d.mac === mac);
+            if (!data) return;
+            const over = STATE.overrides[mac]  {};
+
+            document.getElementById('modal-title').innerText = over.name  data.id;
+            document.getElementById('modal-subtitle').innerText = `Локація: ${over.loc  data.loc}`;
+            
+            document.getElementById('edit-name').value = over.name  data.id;
+            document.getElementById('edit-loc').value = over.loc  data.loc;
+            document.getElementById('force-norm').checked = !!over.force;
+
+            document.getElementById('m-mac').innerText = mac;
+            document.getElementById('m-fw').innerText = "v2.4.1";
+            document.getElementById('m-up').innerText = ${data.up} год;
+            document.getElementById('m-energy').innerText = ${data.energy} kWh;
+
+            if (STATE.isRoot) {
+                document.getElementById('modal-root-fields').classList.remove('hidden');
+                document.getElementById('m-save').classList.remove('hidden');
+                document.getElementById('m-del').classList.remove('hidden');
+            } else {
+                document.getElementById('modal-root-fields').classList.add('hidden');
+                document.getElementById('m-save').classList.add('hidden');
+                document.getElementById('m-del').classList.add('hidden');
+            }
+
+            document.getElementById('node-modal').classList.remove('hidden');
+        };
+
+        window.closeModal = () => {
+            document.getElementById('node-modal').classList.add('hidden');
+            STATE.selectedMac = null;
+        };
+// ЗБЕРЕЖЕННЯ НАЛАШТУВАНЬ (Працює гарантовано через inline onclick)
+        window.saveNodeSettings = () => {
+            const mac = STATE.selectedMac;
+            if (!mac) return;
+
+            const forceChecked = document.getElementById('force-norm').checked;
+            
+            if (!STATE.overrides[mac]) STATE.overrides[mac] = {};
+            STATE.overrides[mac].name = document.getElementById('edit-name').value;
+            STATE.overrides[mac].loc = document.getElementById('edit-loc').value;
+            
+            if (forceChecked && !STATE.overrides[mac].force) {
+                addLog(Критичний стан проігноровано (Обхід) для вузла ${mac}, 'warn');
+            } else if (!forceChecked && STATE.overrides[mac].force) {
+                addLog(Обхід статусу скасовано для вузла ${mac}, 'info');
+            }
+            
+            STATE.overrides[mac].force = forceChecked;
+            
+            closeModal();
+            pollData(); // Негайне оновлення інтерфейсу
+        };
+
+        // ВИДАЛЕННЯ ВУЗЛА (Повне видалення з масиву)
+        window.deleteSelectedNode = () => {
+            const mac = STATE.selectedMac;
+            if (!mac) return;
+            
+            // Видаляємо з симуляції
+            STATE.nodes = STATE.nodes.filter(n => n.mac !== mac);
+            
+            // Записуємо видалення для апаратного режиму
+            if(!STATE.overrides[mac]) STATE.overrides[mac] = {};
+            STATE.overrides[mac].deleted = true;
+            
+            addLog(Вузол ${mac} видалено з системи адміністратором., 'error');
+            closeModal();
+            pollData();
+        };
+
+        window.repairNode = () => {
+            const node = STATE.nodes.find(n => n.mac === STATE.selectedMac);
+            if (node) {
+                node.isBroken = false;
+                node.isDirty = false;
+                if (STATE.overrides[STATE.selectedMac]) STATE.overrides[STATE.selectedMac].force = false;
+                addLog(Технічне обслуговування успішне. Вузол відремонтовано., 'success');
+            }
+            closeModal();
+            pollData();
+        };
+
+        // Керування режимом ROOT
+        window.toggleRoot = () => {
+            STATE.isRoot = !STATE.isRoot;
+            
+            const btn = document.getElementById('root-btn');
+            const mainContent = document.getElementById('main-content');
+            const sidebar = document.getElementById('sidebar-logs');
+
+            if (STATE.isRoot) {
+                document.body.classList.add('root-active');
+                btn.classList.replace('text-gray-300', 'text-red-500');
+                btn.classList.replace('border-gray-600', 'border-red-500');
+                
+                // Показуємо лог, звужуємо контент
+                mainContent.classList.replace('lg:col-span-4', 'lg:col-span-3');
+                sidebar.classList.remove('hidden');
+                sidebar.classList.add('flex');
+                
+                addLog("Активовано режим адміністратора ROOT. Збір логів розпочато.", 'warn');
+            } else {
+                document.body.classList.remove('root-active');
+                btn.classList.replace('text-red-500', 'text-gray-300');
+                btn.classList.replace('border-red-500', 'border-gray-600');
+                
+                // Ховаємо лог, розширюємо контент
+                mainContent.classList.replace('lg:col-span-3', 'lg:col-span-4');
+                sidebar.classList.add('hidden');
+                sidebar.classList.remove('flex');
+            }
+            pollData();
+        };
+document.getElementById('hardware-toggle').onchange = (e) => {
+            STATE.isHw = e.target.checked;
+            const hwControls = document.getElementById('hw-controls');
+            if (STATE.isHw) {
+                hwControls.classList.remove('hidden');
+                hwControls.classList.add('flex');
+                document.getElementById('label-hw').classList.replace('text-gray-500', 'text-gray-300');
+                document.getElementById('label-sim').classList.replace('text-gray-300', 'text-gray-500');
+                addLog("Перемикання на апаратну шину ESP32. Очікування JSON...", "warn");
+            } else {
+                hwControls.classList.add('hidden');
+                hwControls.classList.remove('flex');
+                document.getElementById('label-sim').classList.replace('text-gray-500', 'text-gray-300');
+                document.getElementById('label-hw').classList.replace('text-gray-300', 'text-gray-500');
+                addLog("Повернення до режиму симуляції", "info");
+            }
+            pollData();
+        };
+
+        document.getElementById('add-node-btn').onclick = () => {
+            const count = STATE.nodes.length + 1;
+            STATE.nodes.push(new Node(NODE-${count.toString().padStart(2, '0')}, 'Дах'));
+            addLog(Додано новий тестовий вузол., 'info');
+            pollData();
+        };
+
+        document.getElementById('time-slider').oninput = (e) => {
+            STATE.useRealTime = false;
+            STATE.hour = parseInt(e.target.value);
+            document.getElementById('time-display').innerText = ${STATE.hour.toString().padStart(2, '0')}:00;
+            if (!STATE.isHw) pollData();
+        };
+
+        document.getElementById('real-time-btn').onclick = () => {
+            STATE.useRealTime = true;
+            STATE.hour = new Date().getHours();
+            document.getElementById('time-slider').value = STATE.hour;
+            document.getElementById('time-display').innerText = ${STATE.hour.toString().padStart(2, '0')}:${new Date().getMinutes().toString().padStart(2, '0')};
+            if (!STATE.isHw) pollData();
+        };
+
+        document.getElementById('update-geo-btn').onclick = () => {
+            const lat = parseFloat(document.getElementById('manual-lat').value.replace(',','.'));
+            const lon = parseFloat(document.getElementById('manual-lon').value.replace(',','.'));
+            if (!isNaN(lat) && !isNaN(lon)) fetchMeteo(lat, lon);
+        };
+
+        document.getElementById('clear-logs').onclick = () => logs.innerHTML = "";
+
+        // Закриття модалки по фону
+        window.onclick = function(e) {
+            if (e.target == document.getElementById('node-modal')) closeModal();
+        }
+
+        // Ініціалізація
+        STATE.nodes = [
+            new Node("NODE-01", "Дах Сектор А"), 
+            new Node("NODE-02", "Дах Сектор Б"), 
+            new Node("NODE-03", "Земля Південь")
+        ];
+        
+        setInterval(pollData, 3000);
+        pollData();
+
+    </script>
+</body>
+</html>
